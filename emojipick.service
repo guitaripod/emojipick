@@ -1,0 +1,13 @@
+[Unit]
+Description=emojipick emoji picker daemon
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/emojipick --daemon
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target
