@@ -11,7 +11,7 @@ optdepends=('ydotool: auto-paste the picked emoji into the focused window'
             'noto-fonts-emoji: color emoji glyphs')
 makedepends=('cargo')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/guitaripod/emojipick/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('8608bf706689dc6efa85d850209d77f1f0758ce95c2adb32f8bd0a68d4166de0')
 
 prepare() {
     cd "$pkgname-$pkgver"
