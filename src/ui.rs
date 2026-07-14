@@ -73,6 +73,10 @@ fn css_for(scale: f32, dark: bool) -> String {
   box-shadow: 0 12px 40px alpha(black, 0.45);
 }}
 .emojipick label {{ color: {fg}; }}
+.emojipick scrolledwindow,
+.emojipick scrolledwindow viewport,
+.emojipick stack,
+.emoji-grid {{ background: transparent; }}
 .search-entry {{ font-size: {search}rem; margin: 4px; color: {fg}; background: {entry_bg}; }}
 .search-entry text {{ color: {fg}; }}
 .search-entry image {{ color: {fg}; }}
@@ -93,6 +97,7 @@ fn css_for(scale: f32, dark: bool) -> String {
 .emoji-grid > * {{
   border-radius: 8px; padding: 2px;
   min-width: {cell}px; min-height: {cell}px;
+  background: transparent;
   transition: background 120ms ease;
 }}
 .emoji-grid > *:hover  {{ background: {hover}; }}
