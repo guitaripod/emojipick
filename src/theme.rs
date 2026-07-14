@@ -11,24 +11,23 @@ const IFACE: &str = "org.freedesktop.portal.Settings";
 const NAMESPACE: &str = "org.freedesktop.appearance";
 const KEY: &str = "color-scheme";
 
-/// Make GTK track the desktop's light/dark preference live.
+/// Track the desktop's light/dark preference and report it as a `bool` (dark).
 ///
-/// GTK reads `gtk-application-prefer-dark-theme` from `settings.ini` only at
-/// startup, so a resident daemon never notices a KDE color-scheme switch. We
-/// read the XDG portal's `org.freedesktop.appearance color-scheme` up front and
-/// subscribe to `SettingChanged`, flipping the GTK setting on every change.
-pub fn follow_system() {
-    let conn = match Connection::session() {
-        Ok(conn) => conn,
-        Err(err) => {
-            eprintln!("emojipick: cannot follow system color-scheme: {err:#}");
-            return;
-        }
-    };
+/// `on_change` is invoked once synchronously with the current value, then again
+/// on the GTK main thread every time the XDG portal's
+/// `org.freedesktop.appearance color-scheme` changes. It is always called at
+/// least once, even when no portal is reachable, so callers can rely on it to
+/// paint their initial theme. We also mirror the value into GTK's
+/// `gtk-application-prefer-dark-theme` so base-themed popovers/tooltips follow.
+pub fn watch<F: Fn(bool) + 'static>(on_change: F) {
+    let conn = Connection::session().ok();
+    let initial = conn.as_ref().and_then(read_scheme).unwrap_or(0);
+    apply_prefer_dark(initial);
+    on_change(prefer_dark(initial));
 
-    if let Some(scheme) = read_scheme(&conn) {
-        apply(scheme);
-    }
+    let Some(conn) = conn else {
+        return;
+    };
 
     let (tx, rx) = async_channel::unbounded::<u32>();
 
@@ -40,12 +39,13 @@ pub fn follow_system() {
 
     glib::spawn_future_local(async move {
         while let Ok(scheme) = rx.recv().await {
-            apply(scheme);
+            apply_prefer_dark(scheme);
+            on_change(prefer_dark(scheme));
         }
     });
 }
 
-fn apply(scheme: u32) {
+fn apply_prefer_dark(scheme: u32) {
     if let Some(settings) = gtk::Settings::default() {
         settings.set_property("gtk-application-prefer-dark-theme", prefer_dark(scheme));
     }

@@ -8,7 +8,7 @@ use gtk::gdk::ModifierType;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::{Application, ApplicationWindow};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -24,23 +24,67 @@ const SEARCH_CAP: usize = 400;
 const BASE_WIDTH: f32 = 640.0;
 const BASE_HEIGHT: f32 = 480.0;
 
-fn css_for(scale: f32) -> String {
+struct Palette {
+    bg: &'static str,
+    fg: &'static str,
+    entry_bg: &'static str,
+    border: &'static str,
+    hover: &'static str,
+    sel_bg: &'static str,
+    sel_fg: &'static str,
+}
+
+/// Breeze-matched colors driven by the detected scheme rather than the GTK
+/// theme's `@theme_*` named colors — a recycled window that was hidden across a
+/// color-scheme switch does not reliably re-resolve those, so we own the palette
+/// and just reload this provider on show.
+fn palette(dark: bool) -> Palette {
+    if dark {
+        Palette {
+            bg: "#232629",
+            fg: "#eff0f1",
+            entry_bg: "#1b1e20",
+            border: "rgba(255,255,255,0.13)",
+            hover: "rgba(238,240,241,0.09)",
+            sel_bg: "#3daee9",
+            sel_fg: "#ffffff",
+        }
+    } else {
+        Palette {
+            bg: "#eff0f1",
+            fg: "#232629",
+            entry_bg: "#ffffff",
+            border: "rgba(0,0,0,0.15)",
+            hover: "rgba(35,38,41,0.08)",
+            sel_bg: "#3daee9",
+            sel_fg: "#ffffff",
+        }
+    }
+}
+
+fn css_for(scale: f32, dark: bool) -> String {
+    let p = palette(dark);
     format!(
         "window.emojipick, .emojipick > box {{
-  background: @theme_bg_color;
+  background: {bg};
+  color: {fg};
   border-radius: 14px;
-  border: 1px solid alpha(@borders, 0.6);
+  border: 1px solid {border};
   box-shadow: 0 12px 40px alpha(black, 0.45);
 }}
-.search-entry {{ font-size: {search}rem; margin: 4px; }}
+.emojipick label {{ color: {fg}; }}
+.search-entry {{ font-size: {search}rem; margin: 4px; color: {fg}; background: {entry_bg}; }}
+.search-entry text {{ color: {fg}; }}
+.search-entry image {{ color: {fg}; }}
 .emoji-preview {{ font-size: {preview}rem; }}
 .preview-name {{ font-weight: bold; font-size: {name}rem; }}
 .shortcode {{ opacity: 0.55; font-size: {shortcode}rem; }}
+.tone-btn {{ background: transparent; }}
 .tone-btn label {{ font-size: {tone}rem; }}
-.category-bar.linked button {{ padding: 4px 10px; font-size: {cat}rem; }}
+.category-bar.linked button {{ padding: 4px 10px; font-size: {cat}rem; background: transparent; color: {fg}; }}
 .category-bar button:checked {{
-  background: @theme_selected_bg_color;
-  color: @theme_selected_fg_color;
+  background: {sel_bg};
+  color: {sel_fg};
 }}
 .emoji-glyph {{
   font-family: \"Noto Color Emoji\", \"Twemoji\", emoji;
@@ -51,13 +95,20 @@ fn css_for(scale: f32) -> String {
   min-width: {cell}px; min-height: {cell}px;
   transition: background 120ms ease;
 }}
-.emoji-grid > *:hover  {{ background: alpha(@theme_fg_color, 0.08); }}
+.emoji-grid > *:hover  {{ background: {hover}; }}
 .emoji-grid > *:selected {{
-  background: @theme_selected_bg_color;
-  outline: 2px solid @accent_color; outline-offset: -2px;
+  background: {sel_bg};
+  outline: 2px solid {sel_bg}; outline-offset: -2px;
 }}
 .empty-state {{ opacity: 0.5; font-size: {empty}rem; }}
 ",
+        bg = p.bg,
+        fg = p.fg,
+        entry_bg = p.entry_bg,
+        border = p.border,
+        hover = p.hover,
+        sel_bg = p.sel_bg,
+        sel_fg = p.sel_fg,
         search = 1.05 * scale,
         preview = 2.2 * scale,
         name = 1.0 * scale,
@@ -158,8 +209,9 @@ pub fn build_window(app: &Application, state: Rc<RefCell<AppState>>) -> Applicat
         .build();
     window.add_css_class("emojipick");
 
+    let dark = Rc::new(Cell::new(false));
+
     let provider = gtk::CssProvider::new();
-    provider.load_from_string(&css_for(scale0));
     if let Some(display) = gtk::gdk::Display::default() {
         gtk::style_context_add_provider_for_display(
             &display,
@@ -172,12 +224,22 @@ pub fn build_window(app: &Application, state: Rc<RefCell<AppState>>) -> Applicat
         let provider = provider.clone();
         let window = window.clone();
         let state = state.clone();
+        let dark = dark.clone();
         Rc::new(move || {
             let scale = state.borrow().config.scale;
-            provider.load_from_string(&css_for(scale));
+            provider.load_from_string(&css_for(scale, dark.get()));
             window.set_default_size((BASE_WIDTH * scale) as i32, (BASE_HEIGHT * scale) as i32);
         })
     };
+
+    crate::theme::watch({
+        let dark = dark.clone();
+        let restyle = restyle.clone();
+        move |is_dark| {
+            dark.set(is_dark);
+            restyle();
+        }
+    });
 
     let root = gtk::Box::new(gtk::Orientation::Vertical, 6);
     root.set_margin_top(10);
@@ -690,6 +752,7 @@ pub fn build_window(app: &Application, state: Rc<RefCell<AppState>>) -> Applicat
         let sel = sel.clone();
         let grid = grid.clone();
         let scroller = scroller.clone();
+        let restyle = restyle.clone();
         window.connect_map(move |_| {
             *current_category.borrow_mut() = None;
             if let Some(first) = category_toggles.borrow().first() {
@@ -701,7 +764,9 @@ pub fn build_window(app: &Application, state: Rc<RefCell<AppState>>) -> Applicat
             let sel = sel.clone();
             let grid = grid.clone();
             let scroller = scroller.clone();
+            let restyle = restyle.clone();
             glib::idle_add_local_once(move || {
+                restyle();
                 if sel.n_items() > 0 {
                     sel.set_selected(0);
                     grid.scroll_to(

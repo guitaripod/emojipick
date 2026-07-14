@@ -1,6 +1,6 @@
 [package]
 name = "emojipick"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "A fast, frecency-ranked emoji picker for KDE Plasma Wayland with a native global shortcut"
 license = "GPL-3.0-only"

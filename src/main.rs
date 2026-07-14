@@ -66,7 +66,6 @@ fn run_oneshot() -> anyhow::Result<()> {
     let app = build_app();
     let state = new_state(true);
     app.connect_activate(move |app| {
-        theme::follow_system();
         let window = ui::build_window(app, state.clone());
         ui::show(&window);
     });
@@ -86,7 +85,6 @@ fn run_daemon() -> anyhow::Result<()> {
         if started.replace(true) {
             return;
         }
-        theme::follow_system();
         let window = ui::build_window(app, state.clone());
         let hold = app.hold();
         std::mem::forget(hold);
