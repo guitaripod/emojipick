@@ -1,9 +1,9 @@
 [package]
 name = "emojipick"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "A fast, frecency-ranked emoji picker for KDE Plasma Wayland with a native global shortcut"
-license = "GPL-3.0"
+license = "GPL-3.0-only"
 repository = "https://github.com/guitaripod/emojipick"
 homepage = "https://github.com/guitaripod/emojipick"
 readme = "README.md"

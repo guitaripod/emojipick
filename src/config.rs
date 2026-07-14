@@ -12,13 +12,19 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self { auto_paste: false, skin_tone: 0, grid_columns: 9, scale: 1.0 }
+        Self { auto_paste: true, skin_tone: 0, grid_columns: 9, scale: 1.0 }
     }
 }
 
 pub const SCALE_MIN: f32 = 0.7;
 pub const SCALE_MAX: f32 = 3.0;
 pub const SCALE_STEP: f32 = 0.1;
+
+/// Snap a scale factor to one decimal so repeated `Ctrl +/-` steps don't drift
+/// into values like `1.9000002`.
+pub fn round_scale(scale: f32) -> f32 {
+    (scale * 10.0).round() / 10.0
+}
 
 impl Config {
     pub fn path() -> PathBuf {
@@ -43,7 +49,9 @@ impl Config {
             std::fs::create_dir_all(parent)?;
         }
         let raw = toml::to_string_pretty(self)?;
-        std::fs::write(&path, raw)?;
+        let tmp = path.with_extension("toml.tmp");
+        std::fs::write(&tmp, raw)?;
+        std::fs::rename(&tmp, &path)?;
         Ok(())
     }
 
@@ -57,6 +65,6 @@ impl Config {
         if !self.scale.is_finite() {
             self.scale = 1.0;
         }
-        self.scale = self.scale.clamp(SCALE_MIN, SCALE_MAX);
+        self.scale = round_scale(self.scale.clamp(SCALE_MIN, SCALE_MAX));
     }
 }

@@ -5,11 +5,13 @@ mod frecency;
 mod hotkey;
 mod inject;
 mod ipc;
+mod theme;
 mod ui;
 
 use crate::config::Config;
 use crate::frecency::Frecency;
 use crate::ui::AppState;
+use gtk::gio::ApplicationFlags;
 use gtk::prelude::*;
 use gtk::Application;
 use std::cell::RefCell;
@@ -53,10 +55,18 @@ fn new_state(oneshot: bool) -> Rc<RefCell<AppState>> {
     }))
 }
 
+fn build_app() -> Application {
+    Application::builder()
+        .application_id(APP_ID)
+        .flags(ApplicationFlags::NON_UNIQUE)
+        .build()
+}
+
 fn run_oneshot() -> anyhow::Result<()> {
-    let app = Application::builder().application_id(APP_ID).build();
+    let app = build_app();
     let state = new_state(true);
     app.connect_activate(move |app| {
+        theme::follow_system();
         let window = ui::build_window(app, state.clone());
         ui::show(&window);
     });
@@ -69,13 +79,14 @@ fn run_daemon() -> anyhow::Result<()> {
         eprintln!("emojipick daemon already running");
         return Ok(());
     }
-    let app = Application::builder().application_id(APP_ID).build();
+    let app = build_app();
     let state = new_state(false);
     let started = std::rc::Rc::new(std::cell::Cell::new(false));
     app.connect_activate(move |app| {
         if started.replace(true) {
             return;
         }
+        theme::follow_system();
         let window = ui::build_window(app, state.clone());
         let hold = app.hold();
         std::mem::forget(hold);
@@ -118,6 +129,8 @@ fn install_shortcut() -> anyhow::Result<()> {
     Ok(())
 }
 
+const KWIN_RULE_GROUP: &str = "emojipick";
+
 fn install_kwin_rule() {
     use std::process::Command;
 
@@ -126,7 +139,7 @@ fn install_kwin_rule() {
         ("wmclass", "emojipick"),
         ("wmclassmatch", "2"),
         ("wmclasscomplete", "false"),
-        ("placement", "Centered"),
+        ("placement", "5"),
         ("placementrule", "2"),
         ("above", "true"),
         ("aboverule", "2"),
@@ -134,25 +147,59 @@ fn install_kwin_rule() {
         ("skiptaskbarrule", "2"),
         ("skippager", "true"),
         ("skippagerrule", "2"),
+        ("fsplevel", "0"),
+        ("fsplevelrule", "2"),
     ];
     for (key, value) in entries {
         let _ = Command::new("kwriteconfig6")
             .args([
-                "--file", "kwinrulesrc", "--group", "emojipick", "--key", key, value,
+                "--file", "kwinrulesrc", "--group", KWIN_RULE_GROUP, "--key", key, value,
             ])
             .status();
     }
-    let _ = Command::new("kwriteconfig6")
-        .args([
-            "--file", "kwinrulesrc", "--group", "General", "--key", "count", "1",
-        ])
-        .status();
-    let _ = Command::new("kwriteconfig6")
-        .args([
-            "--file", "kwinrulesrc", "--group", "General", "--key", "rules", "emojipick",
-        ])
-        .status();
+
+    register_rule_in_index();
+
     let _ = Command::new("qdbus6")
         .args(["org.kde.KWin", "/KWin", "reconfigure"])
+        .status();
+}
+
+/// Append our rule to KWin's `[General] rules` index without clobbering the
+/// user's other window rules. `rules` is the full ordered list of rule-group
+/// names and `count` is its length; blindly writing `rules=emojipick`/`count=1`
+/// would orphan every other rule the user has.
+fn register_rule_in_index() {
+    use std::process::Command;
+
+    let existing = Command::new("kreadconfig6")
+        .args(["--file", "kwinrulesrc", "--group", "General", "--key", "rules"])
+        .output()
+        .ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+
+    let mut rules: Vec<String> = existing
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect();
+
+    if !rules.iter().any(|r| r == KWIN_RULE_GROUP) {
+        rules.push(KWIN_RULE_GROUP.to_string());
+    }
+
+    let _ = Command::new("kwriteconfig6")
+        .args([
+            "--file", "kwinrulesrc", "--group", "General", "--key", "count",
+            &rules.len().to_string(),
+        ])
+        .status();
+    let _ = Command::new("kwriteconfig6")
+        .args([
+            "--file", "kwinrulesrc", "--group", "General", "--key", "rules",
+            &rules.join(","),
+        ])
         .status();
 }

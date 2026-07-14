@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=emojipick
+GenericName=Emoji Picker
+Comment=Fast, frecency-ranked emoji picker for KDE Plasma Wayland
+Exec=emojipick
+Icon=org.emojipick.Emojipick
+Terminal=false
+Categories=Utility;
+Keywords=emoji;emoticon;smiley;symbol;unicode;
+StartupWMClass=org.emojipick.Emojipick

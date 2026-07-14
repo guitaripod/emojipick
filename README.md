@@ -54,7 +54,7 @@ emojipick install-shortcut
 
 Press **Meta+Space** to toggle the picker.
 
-To insert directly into the focused app instead of just copying, set `auto_paste = true` in the config (requires `ydotool` + a running `ydotoold`).
+By default emojipick pastes the picked emoji straight into the focused app (via `ydotool`) in addition to copying it. Install `ydotool` for that to work; to only copy to the clipboard instead, set `auto_paste = false` in the config.
 
 ## Keybindings
 
@@ -78,7 +78,7 @@ To insert directly into the focused app instead of just copying, set `auto_paste
 `~/.config/emojipick/config.toml`:
 
 ```toml
-auto_paste = false   # also paste (Ctrl+V via ydotool) after copying
+auto_paste = true    # also paste (Ctrl+V via ydotool) after copying; false = copy only
 skin_tone = 0        # 0 = default, 1..5 = light..dark
 grid_columns = 9
 scale = 1.0          # UI scale factor (0.7 – 3.0)
@@ -90,7 +90,7 @@ Frecency data lives in `~/.local/share/emojipick/frecency.json`.
 
 - KDE Plasma 6 on Wayland (KWin) — the global shortcut uses KGlobalAccel.
 - `gtk4`, `wl-clipboard` (for `wl-copy`), a color emoji font (`noto-fonts-emoji`).
-- Optional: `ydotool` (+ `ydotoold`) for auto-paste.
+- `ydotool` (+ `ydotoold`) for the default auto-paste; without it emojipick falls back to copy-only.
 
 ## Why clipboard + paste instead of typing?
 

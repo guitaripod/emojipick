@@ -2,6 +2,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::thread;
+use std::time::Duration;
 
 use anyhow::Context;
 use gtk::glib;
@@ -59,6 +60,7 @@ pub fn serve<F: Fn() + 'static>(on_toggle: F) -> anyhow::Result<()> {
                 Ok(s) => s,
                 Err(_) => continue,
             };
+            let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
             let mut reader = BufReader::new(stream);
             let mut line = String::new();
             if reader.read_line(&mut line).is_ok()

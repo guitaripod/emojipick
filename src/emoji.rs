@@ -139,7 +139,7 @@ pub fn search(query: &str, tone: u8, frecency: &Frecency) -> Vec<Item> {
         .iter()
         .filter_map(|entry| {
             let (tier, fuzzy) = tier_for(entry, &q)?;
-            let frec = frecency.score(&entry.e.as_str().to_string());
+            let frec = frecency.score(entry.e.as_str());
             let effective = if frec > 2.0 && tier > 1 { tier - 1 } else { tier };
             Some((effective, fuzzy, frec, entry))
         })

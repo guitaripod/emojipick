@@ -120,7 +120,9 @@ fn on_pick(base: &str, glyph: &str, window: &ApplicationWindow, state: &Rc<RefCe
     let glyph = glyph.to_string();
     let window = window.clone();
     glib::timeout_add_local_once(Duration::from_millis(60), move || {
-        let _ = inject::insert(&glyph, &config, oneshot);
+        if let Err(err) = inject::insert(&glyph, &config, oneshot) {
+            eprintln!("emojipick: failed to insert emoji: {err:#}");
+        }
         if oneshot {
             if let Some(app) = window.application() {
                 app.quit();
@@ -202,7 +204,7 @@ pub fn build_window(app: &Application, state: Rc<RefCell<AppState>>) -> Applicat
     let tone_btn = gtk::MenuButton::new();
     tone_btn.add_css_class("tone-btn");
     tone_btn.set_label(&hand_tone(state.borrow().config.skin_tone));
-    tone_btn.set_tooltip_text(Some("Skin tone"));
+    tone_btn.set_tooltip_text(Some("Skin tone (Ctrl+0\u{2013}5)"));
     let tone_popover = gtk::Popover::new();
     let tone_row = gtk::Box::new(gtk::Orientation::Horizontal, 2);
     tone_popover.set_child(Some(&tone_row));
@@ -335,11 +337,7 @@ pub fn build_window(app: &Application, state: Rc<RefCell<AppState>>) -> Applicat
             } else {
                 stack.set_visible_child_name("grid");
                 sel.set_selected(0);
-                grid.scroll_to(
-                    0,
-                    gtk::ListScrollFlags::FOCUS | gtk::ListScrollFlags::SELECT,
-                    None,
-                );
+                grid.scroll_to(0, gtk::ListScrollFlags::SELECT, None);
                 scroller.vadjustment().set_value(0.0);
             }
             update_header();
@@ -403,15 +401,7 @@ pub fn build_window(app: &Application, state: Rc<RefCell<AppState>>) -> Applicat
 
     {
         let rebuild = rebuild.clone();
-        let current_category = current_category.clone();
-        let category_toggles = category_toggles.clone();
-        entry.connect_search_changed(move |e| {
-            if !e.text().trim().is_empty() {
-                *current_category.borrow_mut() = None;
-                if let Some(first) = category_toggles.borrow().first() {
-                    first.set_active(true);
-                }
-            }
+        entry.connect_search_changed(move |_| {
             rebuild();
         });
     }
@@ -490,8 +480,9 @@ pub fn build_window(app: &Application, state: Rc<RefCell<AppState>>) -> Applicat
                 if let Some(delta) = zoom {
                     {
                         let mut s = state_k.borrow_mut();
-                        s.config.scale = (s.config.scale + delta)
-                            .clamp(config::SCALE_MIN, config::SCALE_MAX);
+                        s.config.scale = config::round_scale(
+                            (s.config.scale + delta).clamp(config::SCALE_MIN, config::SCALE_MAX),
+                        );
                         let _ = s.config.save();
                     }
                     restyle_k();
@@ -656,6 +647,13 @@ pub fn build_window(app: &Application, state: Rc<RefCell<AppState>>) -> Applicat
                 entry_k.set_text(&text);
                 entry_k.grab_focus();
                 entry_k.set_position(-1);
+                return glib::Propagation::Stop;
+            }
+
+            if !in_entry && keyval == Key::space {
+                if let Some(obj) = sel_k.selected_item().and_downcast::<EmojiObject>() {
+                    on_pick(&obj.base(), &obj.glyph(), &window_k, &state_k);
+                }
                 return glib::Propagation::Stop;
             }
 
