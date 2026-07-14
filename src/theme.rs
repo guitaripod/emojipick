@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use gtk::glib;
 use gtk::prelude::*;
 use std::thread;
+use std::time::Duration;
 use zbus::blocking::{Connection, Proxy};
 use zbus::zvariant::{OwnedValue, Value};
 
@@ -75,11 +76,27 @@ fn scheme_from_value(value: &Value) -> Option<u32> {
     }
 }
 
+/// The daemon can start before `xdg-desktop-portal` is ready (login race), so
+/// the synchronous read in [`watch`] may fail and leave us on the fallback
+/// theme. Once the listener is up, retry reading the real value in the
+/// background and push it so the theme corrects itself without a manual toggle.
+fn resync_initial(conn: &Connection, tx: &async_channel::Sender<u32>) {
+    for _ in 0..40 {
+        if let Some(scheme) = read_scheme(conn) {
+            let _ = tx.send_blocking(scheme);
+            return;
+        }
+        thread::sleep(Duration::from_millis(250));
+    }
+}
+
 fn listen(conn: &Connection, tx: &async_channel::Sender<u32>) -> Result<()> {
     let proxy = Proxy::new(conn, DEST, OBJECT, IFACE).context("portal Settings proxy")?;
     let signal = proxy
         .receive_signal("SettingChanged")
         .context("subscribe to SettingChanged")?;
+
+    resync_initial(conn, tx);
 
     for msg in signal {
         let body = msg.body();
