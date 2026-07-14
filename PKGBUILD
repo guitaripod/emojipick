@@ -9,7 +9,7 @@ license=('GPL-3.0-only')
 depends=('gtk4' 'wl-clipboard' 'noto-fonts-emoji' 'ydotool')
 makedepends=('cargo')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/guitaripod/emojipick/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('bddb7c731406cb95ffcb5bef957604618298ff6e26cd01514dd3352cead9eb32')
 
 prepare() {
     cd "$pkgname-$pkgver"
