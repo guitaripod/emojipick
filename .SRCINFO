@@ -11,6 +11,6 @@ pkgbase = emojipick
 	depends = noto-fonts-emoji
 	depends = ydotool
 	source = emojipick-0.1.4.tar.gz::https://github.com/guitaripod/emojipick/archive/refs/tags/v0.1.4.tar.gz
-	sha256sums = SKIP
+	sha256sums = 80283f713ce481c1ed156c0a4720ec8a4663a5ad10652cbcf82f4981d30a8765
 
 pkgname = emojipick
