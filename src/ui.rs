@@ -21,6 +21,13 @@ pub struct AppState {
 const RECENTS: usize = 40;
 const SEARCH_CAP: usize = 400;
 
+/// On Wayland the skin-tone popover is an `xdg_popup` whose keyboard grab drops
+/// the toplevel's `is-active` to false, which would trip the click-outside
+/// auto-hide the instant the popover opens. We suppress the hide while the
+/// popover is visible; once it closes we wait this long for the compositor to
+/// hand focus back before deciding the picker was genuinely dismissed.
+const POPOVER_DISMISS_GRACE: Duration = Duration::from_millis(150);
+
 const BASE_WIDTH: f32 = 640.0;
 const BASE_HEIGHT: f32 = 480.0;
 
@@ -742,9 +749,24 @@ pub fn build_window(app: &Application, state: Rc<RefCell<AppState>>) -> Applicat
     }
 
     if !state.borrow().oneshot {
-        window.connect_notify_local(Some("is-active"), |w, _| {
-            if !w.is_active() {
-                hide(w);
+        window.connect_notify_local(Some("is-active"), {
+            let tone_popover = tone_popover.clone();
+            move |w, _| {
+                if !w.is_active() && !tone_popover.is_visible() {
+                    hide(w);
+                }
+            }
+        });
+
+        tone_popover.connect_closed({
+            let window = window.clone();
+            move |_| {
+                let window = window.clone();
+                glib::timeout_add_local_once(POPOVER_DISMISS_GRACE, move || {
+                    if !window.is_active() {
+                        hide(&window);
+                    }
+                });
             }
         });
     }
