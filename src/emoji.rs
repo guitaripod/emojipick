@@ -34,7 +34,7 @@ static MATCHER: Lazy<SkimMatcherV2> = Lazy::new(SkimMatcherV2::default);
 
 static CATALOG: Lazy<Vec<CatalogEntry>> = Lazy::new(|| {
     emojis::iter()
-        .filter(|e| e.skin_tone().map_or(true, |t| t == SkinTone::Default))
+        .filter(|e| e.skin_tone().is_none_or(|t| t == SkinTone::Default))
         .map(|e| CatalogEntry {
             e,
             name_lower: e.name().to_lowercase(),
@@ -110,7 +110,7 @@ pub fn by_group(group: Group, tone: u8) -> Vec<Item> {
 
 fn tier_for(entry: &CatalogEntry, q: &str) -> Option<(u8, i64)> {
     let name = &entry.name_lower;
-    if name == q || entry.shortcodes.iter().any(|s| *s == q) {
+    if name == q || entry.shortcodes.contains(&q) {
         return Some((0, i64::MAX));
     }
     if name.starts_with(q) || entry.shortcodes.iter().any(|s| s.starts_with(q)) {

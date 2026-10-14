@@ -12,7 +12,7 @@ It runs as a resident daemon that owns a native global shortcut (via KGlobalAcce
 - **Keyboard-first** — type to filter, arrows/Home/End/PageUp-Down to move, Tab/Shift+Tab to cycle categories, Enter to insert. Full **vim-style** navigation with Ctrl.
 - **Skin tones** — pick a default tone in-UI (or `Ctrl+0..5`), applied across the whole set.
 - **Persistent UI scale** — grow or shrink the whole picker with `Ctrl +` / `Ctrl -`, remembered across restarts.
-- **Insertion** — always copies to the clipboard (`wl-copy`); optionally auto-pastes into the focused window via `ydotool`.
+- **Insertion** — always copies to the clipboard (`wl-copy`); optionally auto-pastes into the focused window via `ydotool`, with a configurable paste chord so terminals work too.
 
 ## Install
 
@@ -54,7 +54,9 @@ emojipick install-shortcut
 
 Press **Meta+Space** to toggle the picker.
 
-By default emojipick pastes the picked emoji straight into the focused app (via `ydotool`) in addition to copying it. Install `ydotool` for that to work; to only copy to the clipboard instead, set `auto_paste = false` in the config.
+By default emojipick pastes the picked emoji straight into the focused app (via `ydotool`) in addition to copying it. Install `ydotool` for that to work; to only copy to the clipboard instead, set `auto_paste = false` in the config. emojipick starts the `ydotool` user unit on demand, so nothing needs enabling.
+
+Terminals do not paste on `Ctrl+V`. If you paste into one, set `paste_shortcut = "ctrl-shift-v"` or `"shift-insert"`.
 
 ## Keybindings
 
@@ -78,11 +80,15 @@ By default emojipick pastes the picked emoji straight into the focused app (via 
 `~/.config/emojipick/config.toml`:
 
 ```toml
-auto_paste = true    # also paste (Ctrl+V via ydotool) after copying; false = copy only
-skin_tone = 0        # 0 = default, 1..5 = light..dark
+auto_paste = true           # also paste via ydotool after copying; false = copy only
+paste_shortcut = "ctrl-v"   # "ctrl-v", "ctrl-shift-v" (terminals) or "shift-insert"
+restore_clipboard = false   # put your previous clipboard text back after pasting
+skin_tone = 0               # 0 = default, 1..5 = light..dark
 grid_columns = 9
-scale = 1.0          # UI scale factor (0.7 – 3.0)
+scale = 1.0                 # UI scale factor (0.7 – 3.0)
 ```
+
+Edits apply the next time the picker opens, except `grid_columns`, which needs a daemon restart. A config that fails to parse is moved to `config.toml.bak` and defaults are used, so a typo never destroys your file.
 
 Frecency data lives in `~/.local/share/emojipick/frecency.json`.
 

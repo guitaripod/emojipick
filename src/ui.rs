@@ -72,7 +72,7 @@ fn palette(dark: bool) -> Palette {
 fn css_for(scale: f32, dark: bool) -> String {
     let p = palette(dark);
     format!(
-        "window.emojipick, .emojipick > box {{
+        "window.emojipick {{
   background: {bg};
   color: {fg};
   border-radius: 14px;
@@ -198,6 +198,15 @@ fn hand_tone(tone: u8) -> String {
     emojis::get("\u{270B}")
         .map(|e| emoji::apply_skin_tone(e, tone))
         .unwrap_or_else(|| "\u{270B}".to_string())
+}
+
+/// Pick up edits made to `config.toml` while the daemon was resident, so changing
+/// a setting never needs a restart. `grid_columns` is the exception: the grid is
+/// built once.
+fn reload_config(state: &Rc<RefCell<AppState>>, tone_btn: &gtk::MenuButton) {
+    let config = Config::load();
+    tone_btn.set_label(&hand_tone(config.skin_tone));
+    state.borrow_mut().config = config;
 }
 
 fn focus_in_entry(window: &ApplicationWindow, entry: &gtk::SearchEntry) -> bool {
@@ -780,7 +789,10 @@ pub fn build_window(app: &Application, state: Rc<RefCell<AppState>>) -> Applicat
         let grid = grid.clone();
         let scroller = scroller.clone();
         let restyle = restyle.clone();
+        let state = state.clone();
+        let tone_btn = tone_btn.clone();
         window.connect_map(move |_| {
+            reload_config(&state, &tone_btn);
             *current_category.borrow_mut() = None;
             if let Some(first) = category_toggles.borrow().first() {
                 first.set_active(true);

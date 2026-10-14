@@ -19,12 +19,34 @@ use std::rc::Rc;
 
 const APP_ID: &str = "org.emojipick.Emojipick";
 
+const USAGE: &str = "\
+usage: emojipick [COMMAND]
+
+With no command, toggles the running daemon, or opens a one-shot picker when
+no daemon is running.
+
+commands:
+  --daemon            run the resident picker and register the global shortcut
+  --toggle            show or hide the picker in the running daemon
+  install-shortcut    apply the KWin rule that centers and floats the picker
+  -V, --version       print the version
+  -h, --help          print this help
+";
+
 fn main() -> anyhow::Result<()> {
     let arg = std::env::args().nth(1);
     match arg.as_deref() {
         Some("--daemon") => run_daemon(),
         Some("--toggle") => run_toggle(),
         Some("install-shortcut") => install_shortcut(),
+        Some("--version" | "-V") => {
+            println!("emojipick {}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
+        Some("--help" | "-h") => {
+            print!("{USAGE}");
+            Ok(())
+        }
         None => {
             if ipc::is_daemon_running() {
                 run_toggle()
@@ -33,7 +55,8 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Some(other) => {
-            eprintln!("unknown argument: {other}");
+            eprintln!("unknown argument: {other}\n");
+            eprint!("{USAGE}");
             std::process::exit(2);
         }
     }
